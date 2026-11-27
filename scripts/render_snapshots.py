@@ -28,6 +28,8 @@ SANS_BOLD = [
 ]
 MONO = [os.environ.get("FONT_MONO"), "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", "/System/Library/Fonts/Menlo.ttc"]
 
+CANVAS = (1100, 600)  # every findings chart uses the same size so they align in the README
+
 INK = (31, 41, 55)
 MUTED = (75, 85, 99)
 RULE = (209, 213, 219)
@@ -97,13 +99,12 @@ def bar_chart(
     dest: Path, heading: str, sub: str, bars: list[tuple[str, float, str, tuple[int, int, int]]], note: str
 ) -> None:
     label_f, val_f = font(SANS, 18), font(SANS_BOLD, 18)
+    w, h = CANVAS
     label_w = 400
-    plot_w = 520
     val_w = 200
-    w = 40 + label_w + plot_w + val_w + 40
-    row_h = 62
+    plot_w = w - 40 - label_w - val_w - 40
     top = 130
-    h = top + row_h * len(bars) + 90
+    row_h = min(90, (h - top - 90) // len(bars))
     img = Image.new("RGB", (w, h), WHITE)
     d = ImageDraw.Draw(img)
     title(d, heading, sub, w)
@@ -112,11 +113,12 @@ def bar_chart(
     d.line((x0, top - 12, x0, top + row_h * len(bars)), fill=RULE, width=2)
     for i, (label, value, text, color) in enumerate(bars):
         y = top + i * row_h
-        d.text((40, y + 14), label, font=label_f, fill=INK)
+        pad_y = (row_h - 36) // 2
+        d.text((40, y + pad_y + 6), label, font=label_f, fill=INK)
         bw = max(int(plot_w * value / mx), 0)
         if bw:
-            d.rectangle((x0 + 2, y + 8, x0 + 2 + bw, y + 44), fill=color)
-        d.text((x0 + 2 + bw + 16, y + 14), text, font=val_f, fill=INK)
+            d.rectangle((x0 + 2, y + pad_y, x0 + 2 + bw, y + pad_y + 36), fill=color)
+        d.text((x0 + 2 + bw + 16, y + pad_y + 6), text, font=val_f, fill=INK)
     d.text((40, h - 52), note, font=font(SANS, 16), fill=MUTED)
     img.save(dest, optimize=True)
 
@@ -199,10 +201,10 @@ def main() -> None:
         ),
     ]
     f, fb = font(SANS, 18), font(SANS_BOLD, 18)
-    cols = [40, 470, 700, 910]
-    row_h = 48
+    cols = [40, 500, 740, 960]
+    w, h = CANVAS
+    row_h = 52
     top = 140
-    w, h = 1030, top + row_h * len(rows) + 40
     img = Image.new("RGB", (w, h), WHITE)
     d = ImageDraw.Draw(img)
     title(d, "Silver table versus the source table", "Customers / orders row counts where the test recorded them. Source: results/*.json", w)
