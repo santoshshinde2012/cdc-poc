@@ -529,6 +529,8 @@ Set in `docker-compose.yml`: `wal_level=logical`, `max_replication_slots=4`, `ma
 
 `./run.sh test` ran clean on 2026-11-27 (IST) on an Apple silicon Mac: lint and format clean, mypy strict clean on
 48 files, **82 unit tests passed in 10.69 s**, **8 integration tests passed in 221.40 s**, 242 s end to end.
+The quality gate is local: `./run.sh check` for lint, types and unit tests, and `./run.sh test` for the full suite
+including the eight end-to-end scenarios.
 
 <p align="center">
   <img src="docs/images/test-summary.png" width="720" alt="Output of ./run.sh test">
@@ -555,12 +557,6 @@ event, schema change, slot retention.
 | `test_06_schema_change_add_column` | `ALTER TABLE customers ADD COLUMN region` while streaming. Bronze schema is unchanged and Silver gains `region` |
 | `test_07_slot_retains_wal_while_stopped` | With Debezium stopped, the slot keeps WAL. After restart and catch-up it is released |
 | `test_08_verify_command_detects_drift` | `./run.sh verify` exits 0 when Silver is current, exits 1 and names the row when one source row is ahead of Silver, and exits 0 again after the Silver job runs |
-
-### Continuous integration
-
-`.github/workflows/ci.yml` runs ruff, ruff format, mypy and the unit tests on pushes and pull requests that touch
-code. It has no Docker step, so the 8 end-to-end scenarios run locally with `./run.sh test`. The workflow has not
-run yet, so there is no CI badge.
 
 ## Design (SOLID)
 
