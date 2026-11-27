@@ -72,16 +72,35 @@ Images pulled on first run: `postgres:17` and `quay.io/debezium/server:3.7.1.Fin
 
 ## Quick start
 
+Check the code first. This needs no Docker:
+
 ```bash
-git clone <this repository> cdc-poc && cd cdc-poc
+git clone https://github.com/santoshshinde2012/cdc-poc.git && cd cdc-poc
 uv sync                 # create .venv and install dependencies, once
 ./run.sh check          # ruff, ruff format, mypy strict
-./run.sh unit           # 68 unit tests, no Docker, a few seconds
-./run.sh test           # check + unit + 7 end-to-end tests, about 4 minutes, needs Docker
+./run.sh unit           # 68 unit tests, a few seconds
+```
+
+Then run the whole pipeline by hand with Docker running. Each step is explained in the walkthrough below:
+
+```bash
+./run.sh up             # Postgres and Debezium in Docker, receiver on the host, snapshot starts
+./run.sh seed           # load the workload procedure
+./run.sh workload 200   # 200 mixed transactions
+./run.sh silver         # apply the new Bronze events to Silver (wait about 20 s after the workload)
+./run.sh status         # slot, retained WAL, Bronze and Silver counts
+./run.sh down           # stop everything, keep the data
+```
+
+Or run every check and all seven end-to-end scenarios in one go:
+
+```bash
+./run.sh test           # check + unit + integration, about 4 minutes, needs Docker
 ```
 
 `./run.sh test` creates a fresh stack, runs every scenario, writes the evidence to `results/`, and stops the
-containers when it is done. To explore by hand instead, use the walkthrough below.
+containers when it is done. If you copied the folder or deleted `./data` but kept the Docker volume, run
+`./run.sh reset` once before `up` so Postgres and Debezium start from the same state.
 
 ## Walkthrough
 
@@ -94,11 +113,10 @@ start runs the initial snapshot of 50 customers and 100 orders.
 
 ```text
 $ ./run.sh up
- Container cdc-poc-postgres Started 
- Container cdc-poc-postgres Healthy 
+ Container cdc-poc-postgres Started
+ Container cdc-poc-postgres Healthy
 receiver up (pid 8457)
- Container cdc-poc-postgres Healthy 
- Container cdc-poc-debezium Started 
+ Container cdc-poc-debezium Started
 up. Bronze: data/bronze/events  Debezium offsets: data/debezium/offsets.dat
 ```
 
@@ -170,7 +188,8 @@ silver.orders: 108 rows
 ### 5. `./run.sh status`
 
 Shows the replication slot and the WAL it retains, the source row counts, the Bronze counts by operation, the
-number of duplicate rows in Bronze, and the Silver row counts. Silver (84 customers and 108 orders) equals the source, and this fresh run has no duplicate rows because nothing was replayed.
+number of duplicate rows in Bronze, and the Silver row counts. Silver (84 customers and 108 orders) equals the
+source. This fresh run has no duplicate rows because nothing was replayed.
 
 ![Output of run.sh status](docs/images/status-output.png)
 
@@ -253,8 +272,8 @@ Set in `docker-compose.yml`: `wal_level=logical`, `max_replication_slots=4`, `ma
 
 ## The test suite
 
-`./run.sh test` ran clean on 2026-11-27 (IST): lint and format clean, mypy strict clean on 38 files,
-**68 unit tests passed in 3.9 s**, **7 integration tests passed in 210.8 s**, 216 s end to end on an Apple silicon Mac.
+`./run.sh test` ran clean on 2026-11-27 (IST) on an Apple silicon Mac: lint and format clean, mypy strict clean on
+38 files, **68 unit tests passed in 3.9 s**, **7 integration tests passed in 210.8 s**, 216 s end to end.
 
 ![Output of run.sh test](docs/images/test-summary.png)
 
@@ -319,14 +338,44 @@ concrete Delta, HTTP and clock classes are chosen only in the two composition ro
 ```mermaid
 classDiagram
   direction LR
-  class BronzeSink { <<Protocol>> +append(rows) }
-  class ChangeSource { <<Protocol>> +read_new() ChangeBatch +commit(batch) }
-  class CheckpointStore { <<Protocol>> +load() +save(processed) }
-  class SeenKeyStore { <<Protocol>> +drop_seen(frame) +remember(keys) }
-  class SilverReader { <<Protocol>> +read(table) +schema(table) +delete_markers(table) }
-  class Merger { <<Protocol>> +merge(table, changes, keys) }
-  class Clock { <<Protocol>> +now() +sleep(s) }
-  class IdempotencyKeyStrategy { <<Protocol>> +key(dest, key, op, pos) }
+  class BronzeSink {
+    <<Protocol>>
+    +append(rows)
+  }
+  class ChangeSource {
+    <<Protocol>>
+    +read_new() ChangeBatch
+    +commit(batch)
+  }
+  class CheckpointStore {
+    <<Protocol>>
+    +load()
+    +save(processed)
+  }
+  class SeenKeyStore {
+    <<Protocol>>
+    +drop_seen(frame)
+    +remember(keys)
+  }
+  class SilverReader {
+    <<Protocol>>
+    +read(table)
+    +schema(table)
+    +delete_markers(table)
+  }
+  class Merger {
+    <<Protocol>>
+    +merge(table, changes, keys)
+  }
+  class Clock {
+    <<Protocol>>
+    +now()
+    +sleep(s)
+  }
+  class IdempotencyKeyStrategy {
+    <<Protocol>>
+    +key(dest, key, op, pos)
+  }
 
   class EnvelopeMapper
   class IngestService
