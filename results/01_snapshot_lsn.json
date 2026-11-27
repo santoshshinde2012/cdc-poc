@@ -1,0 +1,34 @@
+{
+  "snapshot_read_rows": 150,
+  "null_source_lsn": 0,
+  "distinct_snapshot_lsns": [
+    26615504
+  ],
+  "snapshot_lsn_pg_format": "0/1961ED0",
+  "source_sequence_example": "[null,\"26615504\"]",
+  "source_snapshot_values": [
+    "first",
+    "first_in_data_collection",
+    "last",
+    "last_in_data_collection",
+    "true"
+  ],
+  "source_example": {
+    "connector": "postgresql",
+    "db": "shop",
+    "lsn": 26615504,
+    "name": "cdc",
+    "origin": null,
+    "origin_lsn": null,
+    "schema": "public",
+    "sequence": "[null,\"26615504\"]",
+    "snapshot": "first",
+    "table": "customers",
+    "ts_ms": 1795784216652,
+    "ts_ns": 1795784216652758000,
+    "ts_us": 1795784216652758,
+    "txId": 749,
+    "version": "3.7.1.Final",
+    "xmin": null
+  }
+}

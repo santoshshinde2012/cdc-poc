@@ -1,0 +1,11 @@
+$ ./run.sh down
+ Container cdc-poc-debezium Stopping 
+ Container cdc-poc-debezium Stopped 
+ Container cdc-poc-debezium Removing 
+ Container cdc-poc-debezium Removed 
+ Container cdc-poc-postgres Stopping 
+ Container cdc-poc-postgres Stopped 
+ Container cdc-poc-postgres Removing 
+ Container cdc-poc-postgres Removed 
+ Network cdc-poc_default Removing 
+ Network cdc-poc_default Removed 

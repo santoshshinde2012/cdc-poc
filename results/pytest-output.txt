@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.6, pytest-9.2.0, pluggy-1.7.0 -- <project>/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: <project>
+configfile: pyproject.toml
+collecting ... collected 7 items
+
+tests/integration/test_cdc_poc.py::test_01_snapshot_rows_carry_lsn PASSED [ 14%]
+tests/integration/test_cdc_poc.py::test_02_changes_converge PASSED       [ 28%]
+tests/integration/test_cdc_poc.py::test_03_replay_after_lost_ack PASSED  [ 42%]
+tests/integration/test_cdc_poc.py::test_04_replay_after_restarts PASSED  [ 57%]
+tests/integration/test_cdc_poc.py::test_05_late_lower_lsn_event_is_ignored PASSED [ 71%]
+tests/integration/test_cdc_poc.py::test_06_schema_change_add_column PASSED [ 85%]
+tests/integration/test_cdc_poc.py::test_07_slot_retains_wal_while_stopped PASSED [100%]
+
+======================== 7 passed in 210.80s (0:03:30) =========================

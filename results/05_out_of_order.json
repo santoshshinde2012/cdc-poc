@@ -1,0 +1,36 @@
+{
+  "late_update": {
+    "id": 186,
+    "silver_lsn": 27242888,
+    "injected_lsn": 27242887
+  },
+  "late_insert_for_deleted_key": {
+    "id": 162,
+    "delete_lsn": 27243376,
+    "injected_lsn": 27243375
+  },
+  "silver_stats": {
+    "bronze_rows_read": 2,
+    "bronze_files_read": 1,
+    "operations_read": {
+      "create": 1,
+      "update": 1
+    },
+    "dropped_non_row_events": 0,
+    "dup_in_batch": 0,
+    "dup_across_runs": 0,
+    "superseded_in_batch": {
+      "customers": 0
+    },
+    "ignored_late": {
+      "customers": 2
+    }
+  },
+  "silver_equals_source": true,
+  "stale_name_in_silver": 0,
+  "arrival_order_control": {
+    "victim_name": "STALE LATE UPDATE",
+    "deleted_key_resurrected": true
+  },
+  "full_refresh_rebuild_equals_source": true
+}

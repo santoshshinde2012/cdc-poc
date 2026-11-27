@@ -1,0 +1,11 @@
+{
+  "receiver_dropped_acks": 3,
+  "bronze_duplicates_before": 0,
+  "bronze_duplicates_after": 327,
+  "new_duplicate_rows": 327,
+  "silver_equals_source": true,
+  "silver_rows": {
+    "customers": 97,
+    "orders": 91
+  }
+}

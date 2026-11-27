@@ -1,0 +1,33 @@
+$ ./run.sh silver
+{
+  "bronze_rows_read": 417,
+  "bronze_files_read": 12,
+  "operations_read": {
+    "create": 91,
+    "delete": 49,
+    "heartbeat": 10,
+    "read": 150,
+    "update": 117
+  },
+  "dropped_non_row_events": 10,
+  "dup_in_batch": 0,
+  "dup_across_runs": 0,
+  "superseded_in_batch": {
+    "customers": 51,
+    "orders": 116
+  },
+  "ignored_late": {
+    "customers": 0,
+    "orders": 0
+  },
+  "upserts": {
+    "customers": 84,
+    "orders": 108
+  },
+  "deletes": {
+    "customers": 12,
+    "orders": 36
+  }
+}
+silver.customers: 84 rows
+silver.orders: 108 rows

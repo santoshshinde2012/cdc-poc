@@ -1,0 +1,232 @@
+{
+  "snapshot_seconds_after_up": 6.1,
+  "01_snapshot_lsn": {
+    "snapshot_read_rows": 150,
+    "null_source_lsn": 0,
+    "distinct_snapshot_lsns": [
+      26615504
+    ],
+    "snapshot_lsn_pg_format": "0/1961ED0",
+    "source_sequence_example": "[null,\"26615504\"]",
+    "source_snapshot_values": [
+      "first",
+      "first_in_data_collection",
+      "last",
+      "last_in_data_collection",
+      "true"
+    ],
+    "source_example": {
+      "connector": "postgresql",
+      "db": "shop",
+      "lsn": 26615504,
+      "name": "cdc",
+      "origin": null,
+      "origin_lsn": null,
+      "schema": "public",
+      "sequence": "[null,\"26615504\"]",
+      "snapshot": "first",
+      "table": "customers",
+      "ts_ms": 1795784216652,
+      "ts_ns": 1795784216652758000,
+      "ts_us": 1795784216652758,
+      "txId": 749,
+      "version": "3.7.1.Final",
+      "xmin": null
+    }
+  },
+  "02_changes": {
+    "bronze_counts": {
+      "__debezium-heartbeat.cdc/heartbeat": 2,
+      "cdc.public.customers/create": 71,
+      "cdc.public.customers/delete": 25,
+      "cdc.public.customers/read": 50,
+      "cdc.public.customers/update": 76,
+      "cdc.public.orders/create": 52,
+      "cdc.public.orders/delete": 58,
+      "cdc.public.orders/read": 100,
+      "cdc.public.orders/update": 108
+    },
+    "silver_rows": {
+      "customers": 96,
+      "orders": 94
+    },
+    "source_rows": {
+      "customers": 96,
+      "orders": 94
+    },
+    "min_streaming_lsn": 26621816,
+    "snapshot_lsn": 26615504,
+    "streaming_lsn_above_snapshot_lsn": true,
+    "tombstone_rows_in_bronze": 0,
+    "heartbeat_rows_in_bronze": 2,
+    "delete_rows_with_null_after": 83,
+    "delete_rows": 83,
+    "duplicates_in_bronze": 0
+  },
+  "03_lost_ack": {
+    "receiver_dropped_acks": 3,
+    "bronze_duplicates_before": 0,
+    "bronze_duplicates_after": 327,
+    "new_duplicate_rows": 327,
+    "silver_equals_source": true,
+    "silver_rows": {
+      "customers": 97,
+      "orders": 91
+    }
+  },
+  "04_restarts": {
+    "a_receiver_restart": {
+      "new_duplicates": 0,
+      "silver_equals_source": true
+    },
+    "b_kill_after_write_before_ack": {
+      "offsets_file_lsn": 27175352,
+      "slot_confirmed_flush_lsn": 27175352,
+      "bronze_max_lsn": 27194144,
+      "settled": {
+        "offsets_file_lsn": 27194376,
+        "bronze_row_max_lsn": 27194144,
+        "waited_s": 25.2
+      },
+      "new_duplicates": 78,
+      "silver_equals_source": true
+    },
+    "c_kill_while_sink_refuses": {
+      "slot_confirmed_flush_lsn": 27194376,
+      "offsets_file_lsn": 27194376,
+      "wal_lsn_before_workload": 27231024,
+      "receiver_rejected": 8,
+      "min_lsn_of_refused_events": 27232256,
+      "refused_events_delivered_after_restart": 53,
+      "slot_stayed_behind_unacked_events": true,
+      "silver_equals_source": true
+    },
+    "bronze_duplicates_total": 405,
+    "bronze_rows_total": 1692
+  },
+  "05_out_of_order": {
+    "late_update": {
+      "id": 186,
+      "silver_lsn": 27242888,
+      "injected_lsn": 27242887
+    },
+    "late_insert_for_deleted_key": {
+      "id": 162,
+      "delete_lsn": 27243376,
+      "injected_lsn": 27243375
+    },
+    "silver_stats": {
+      "bronze_rows_read": 2,
+      "bronze_files_read": 1,
+      "operations_read": {
+        "create": 1,
+        "update": 1
+      },
+      "dropped_non_row_events": 0,
+      "dup_in_batch": 0,
+      "dup_across_runs": 0,
+      "superseded_in_batch": {
+        "customers": 0
+      },
+      "ignored_late": {
+        "customers": 2
+      }
+    },
+    "silver_equals_source": true,
+    "stale_name_in_silver": 0,
+    "arrival_order_control": {
+      "victim_name": "STALE LATE UPDATE",
+      "deleted_key_resurrected": true
+    },
+    "full_refresh_rebuild_equals_source": true
+  },
+  "06_schema_change": {
+    "bronze_customer_events_with_region": 73,
+    "bronze_schema_unchanged": [
+      "destination",
+      "operation",
+      "key",
+      "before",
+      "after",
+      "value",
+      "source_lsn",
+      "source_sequence",
+      "source_txid",
+      "source_snapshot",
+      "source_ts_ms",
+      "event_ts_ms",
+      "idempotency_key",
+      "ingest_batch_id",
+      "ingest_ts"
+    ],
+    "silver_customers_columns": [
+      "id",
+      "_lsn",
+      "email",
+      "name",
+      "tier",
+      "updated_at",
+      "region"
+    ],
+    "silver_rows_with_region": 44,
+    "source_rows_with_region": 44,
+    "silver_equals_source": true,
+    "debezium_running": true
+  },
+  "07_slot_wal": {
+    "max_slot_wal_keep_size": "-1",
+    "while_running": {
+      "active": true,
+      "restart_lsn": "0/1A00A48",
+      "confirmed_flush_lsn": "0/1A05068",
+      "wal_status": "reserved",
+      "retained_bytes": 18032,
+      "pg_wal_dir_bytes": 16777216
+    },
+    "stopped_start": {
+      "active": false,
+      "restart_lsn": "0/1A00A48",
+      "confirmed_flush_lsn": "0/1A05068",
+      "wal_status": "reserved",
+      "retained_bytes": 18032,
+      "pg_wal_dir_bytes": 16777216
+    },
+    "stopped_end": {
+      "active": false,
+      "restart_lsn": "0/1A00A48",
+      "confirmed_flush_lsn": "0/1A05068",
+      "wal_status": "reserved",
+      "retained_bytes": 47041488,
+      "pg_wal_dir_bytes": 67108864
+    },
+    "retained_growth_bytes": 47023456,
+    "after_restart_and_catch_up": {
+      "active": true,
+      "restart_lsn": "0/46DD568",
+      "confirmed_flush_lsn": "0/46F19A8",
+      "wal_status": "reserved",
+      "retained_bytes": 404120,
+      "pg_wal_dir_bytes": 67108864
+    },
+    "silver_equals_source_after_restart": true,
+    "idle_captured_tables_noise_only": {
+      "before": {
+        "active": true,
+        "restart_lsn": "0/46DD568",
+        "confirmed_flush_lsn": "0/46F19A8",
+        "wal_status": "reserved",
+        "retained_bytes": 404120,
+        "pg_wal_dir_bytes": 67108864
+      },
+      "after_45s": {
+        "active": true,
+        "restart_lsn": "0/46F1A78",
+        "confirmed_flush_lsn": "0/4739920",
+        "wal_status": "reserved",
+        "retained_bytes": 23989816,
+        "pg_wal_dir_bytes": 67108864
+      },
+      "confirmed_flush_moved": true
+    }
+  }
+}

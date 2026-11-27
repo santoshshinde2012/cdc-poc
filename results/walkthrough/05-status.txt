@@ -1,0 +1,27 @@
+$ ./run.sh status
+ slot_name | active | restart_lsn | confirmed_flush_lsn | retained_wal 
+-----------+--------+-------------+---------------------+--------------
+ dbz_slot  | t      | 0/1956CA0   | 0/19BB220           | 431 kB
+(1 row)
+
+source customers=84 orders=108
+bronze rows 418 (heartbeats 11)
+bronze duplicate rows 0 (same idempotency_key, removed by the Silver job)
+shape: (9, 3)
+┌──────────────────────────┬───────────┬─────┐
+│ destination              ┆ operation ┆ len │
+│ ---                      ┆ ---       ┆ --- │
+│ str                      ┆ str       ┆ u32 │
+╞══════════════════════════╪═══════════╪═════╡
+│ __debezium-heartbeat.cdc ┆ heartbeat ┆ 11  │
+│ cdc.public.customers     ┆ create    ┆ 46  │
+│ cdc.public.customers     ┆ delete    ┆ 12  │
+│ cdc.public.customers     ┆ read      ┆ 50  │
+│ cdc.public.customers     ┆ update    ┆ 39  │
+│ cdc.public.orders        ┆ create    ┆ 45  │
+│ cdc.public.orders        ┆ delete    ┆ 37  │
+│ cdc.public.orders        ┆ read      ┆ 100 │
+│ cdc.public.orders        ┆ update    ┆ 78  │
+└──────────────────────────┴───────────┴─────┘
+silver customers 84
+silver orders 108

@@ -1,0 +1,33 @@
+{
+  "bronze_customer_events_with_region": 73,
+  "bronze_schema_unchanged": [
+    "destination",
+    "operation",
+    "key",
+    "before",
+    "after",
+    "value",
+    "source_lsn",
+    "source_sequence",
+    "source_txid",
+    "source_snapshot",
+    "source_ts_ms",
+    "event_ts_ms",
+    "idempotency_key",
+    "ingest_batch_id",
+    "ingest_ts"
+  ],
+  "silver_customers_columns": [
+    "id",
+    "_lsn",
+    "email",
+    "name",
+    "tier",
+    "updated_at",
+    "region"
+  ],
+  "silver_rows_with_region": 44,
+  "source_rows_with_region": 44,
+  "silver_equals_source": true,
+  "debezium_running": true
+}

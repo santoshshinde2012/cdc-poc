@@ -1,0 +1,24 @@
+$ ./run.sh up
+ Network cdc-poc_default Creating 
+ Volume cdc-poc_pgdata Creating 
+ Volume cdc-poc_pgdata Creating 
+ Network cdc-poc_default Creating 
+ Volume cdc-poc_pgdata Created 
+ Volume cdc-poc_pgdata Created 
+ Network cdc-poc_default Created 
+ Network cdc-poc_default Created 
+ Container cdc-poc-postgres Creating 
+ Container cdc-poc-postgres Created 
+ Container cdc-poc-postgres Starting 
+ Container cdc-poc-postgres Started 
+ Container cdc-poc-postgres Waiting 
+ Container cdc-poc-postgres Healthy 
+receiver up (pid 8457)
+ Container cdc-poc-postgres Running 
+ Container cdc-poc-debezium Creating 
+ Container cdc-poc-debezium Created 
+ Container cdc-poc-postgres Waiting 
+ Container cdc-poc-postgres Healthy 
+ Container cdc-poc-debezium Starting 
+ Container cdc-poc-debezium Started 
+up. Bronze: data/bronze/events  Debezium offsets: data/debezium/offsets.dat
