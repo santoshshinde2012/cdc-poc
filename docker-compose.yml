@@ -1,0 +1,51 @@
+name: cdc-poc
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: cdc-poc-postgres
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: shop
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=4
+      - -c
+      - max_wal_senders=4
+      - -c
+      - max_slot_wal_keep_size=-1
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./postgres/workload.sql:/sql/workload.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d shop"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    mem_limit: 768m
+
+  debezium:
+    image: quay.io/debezium/server:3.7.1.Final
+    container_name: cdc-poc-debezium
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # The receiver runs on the host (uv), reached through host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./debezium/conf:/debezium/config:ro
+      - ./data/debezium:/debezium/data
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx384m"
+    mem_limit: 768m
+
+volumes:
+  pgdata:
