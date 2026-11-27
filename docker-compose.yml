@@ -2,7 +2,8 @@ name: cdc-poc
 
 services:
   postgres:
-    image: postgres:17
+    # Pinned to a minor version and an image digest, so a fresh clone runs the same bits.
+    image: postgres:17.12@sha256:97fb53376be3e4fb1a8a61421daa69dcc3bf2fa39bda3259f5245f9a455af1a9
     container_name: cdc-poc-postgres
     environment:
       POSTGRES_USER: app
@@ -32,7 +33,7 @@ services:
     mem_limit: 768m
 
   debezium:
-    image: quay.io/debezium/server:3.7.1.Final
+    image: quay.io/debezium/server:3.7.1.Final@sha256:837b95b6e1db1210d6e943fd4d261e45d8536e6f0ab3999f6de5e4780341e5f8
     container_name: cdc-poc-debezium
     depends_on:
       postgres:
@@ -45,6 +46,15 @@ services:
       - ./data/debezium:/debezium/data
     environment:
       JAVA_OPTS: "-Xms128m -Xmx384m"
+    # Quarkus health endpoint: healthy only once the connector is running. `up --wait` blocks on this.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/q/health/live >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    # On stop Debezium flushes its offsets and closes the replication connection. Give it time.
+    stop_grace_period: 30s
     mem_limit: 768m
 
 volumes:

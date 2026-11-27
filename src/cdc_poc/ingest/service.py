@@ -72,12 +72,12 @@ class IngestService:
             has_changes = any(r.operation != Operation.HEARTBEAT.value for r in rows)
             decision = self._faults.after_commit() if has_changes else AfterCommit()
         if decision.drop:
-            log.warning("fault injection: committed %d events, answering 503", len(rows))
+            log.warning("fault injection: ack dropped after commit", extra={"events": len(rows), "status": 503})
             return IngestOutcome(503, {"error": "injected: ack lost after durable write"})
         if decision.delay_s:
-            log.warning("fault injection: committed %d events, delaying ack %.1fs", len(rows), decision.delay_s)
+            log.warning("fault injection: ack delayed", extra={"events": len(rows), "delay_s": decision.delay_s})
         else:
-            log.info("committed %d events to bronze", len(rows))
+            log.info("committed to bronze", extra={"events": len(rows)})
         return IngestOutcome(200, {"committed": len(rows)}, delay_s=decision.delay_s)
 
     def configure_faults(self, body: Mapping[str, Any]) -> dict[str, Any]:

@@ -30,6 +30,7 @@ from .helpers import (
     psql,
     read_silver,
     receiver,
+    run_cli,
     sh,
     silver_run,
     source_rows,
@@ -450,3 +451,29 @@ def test_07_slot_retains_wal_while_stopped(summary: dict[str, Any]) -> None:
     assert stopped_start["active"] is False
     assert result["retained_growth_bytes"] > 20 * 1024 * 1024
     assert after["retained_bytes"] < stopped_end["retained_bytes"]
+
+
+# (5) the verify command: a full row-level diff of Postgres against Silver, exit code 0 or 1
+def test_08_verify_command_detects_drift(summary: dict[str, Any]) -> None:
+    converge()
+    code_ok, out_ok = run_cli("./run.sh", "verify")
+
+    # One source change that Silver has not seen yet (the Silver job has not run) must fail the check.
+    psql("UPDATE public.customers SET name = 'VERIFY PROBE' WHERE id = (SELECT min(id) FROM public.customers)")
+    code_drift, out_drift = run_cli("./run.sh", "verify")
+
+    converge()
+    code_after, out_after = run_cli("./run.sh", "verify")
+
+    result: dict[str, Any] = {
+        "exit_code_when_converged": code_ok,
+        "exit_code_with_unapplied_change": code_drift,
+        "exit_code_after_silver_run": code_after,
+        "drift_report_names_the_row": "VERIFY PROBE" in out_drift and "only in Postgres" in out_drift,
+        "converged_output": out_ok.strip().splitlines()[-3:],
+        "drift_output": out_drift.strip().splitlines()[:6],
+    }
+    summary["08_verify"] = result
+    write_result("08_verify", result)
+    assert (code_ok, code_drift, code_after) == (0, 1, 0), (out_ok, out_drift, out_after)
+    assert result["drift_report_names_the_row"], out_drift

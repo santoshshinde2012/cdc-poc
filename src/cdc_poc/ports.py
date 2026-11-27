@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 import polars as pl
 
@@ -80,3 +80,9 @@ class Merger(Protocol):
     """Write side of Silver: applies ordered changes (columns + `_op` + `_lsn`) as SCD Type 1."""
 
     def merge(self, table: str, changes: pl.DataFrame, keys: Sequence[str]) -> None: ...
+
+
+class SourceReader(Protocol):
+    """Reads the current rows of a source table (the system of record), used to verify Silver."""
+
+    def rows(self, table: str) -> list[dict[str, Any]]: ...

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 from urllib import request
@@ -23,6 +20,8 @@ from cdc_poc.ingest.envelope import EnvelopeMapper
 from cdc_poc.ingest.idempotency import Sha256IdempotencyKey
 from cdc_poc.silver.app import build_delta
 from cdc_poc.storage.delta import DeltaBronzeWriter
+from cdc_poc.storage.postgres import PsqlSourceReader
+from cdc_poc.verify.differ import SilverVerifier
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -96,50 +95,26 @@ def receiver(path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
         return dict(json.loads(r.read()))
 
 
-_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T")
-
-
-def norm(v: Any) -> Any:  # noqa: PLR0911
-    """Normalize values so Postgres JSON and Debezium JSON compare equal (numeric, timestamptz)."""
-    if v is None:
-        return None
-    if isinstance(v, bool):
-        return v
-    if isinstance(v, (int, float)):
-        return Decimal(str(v))
-    if isinstance(v, str):
-        if _ISO.match(v):
-            try:
-                return datetime.fromisoformat(v).astimezone(UTC)
-            except ValueError:
-                return v
-        try:
-            if re.fullmatch(r"-?\d+(\.\d+)?", v):
-                return Decimal(v)
-        except InvalidOperation:
-            pass
-    return v
-
-
-def normalize(rows: list[dict[str, Any]], columns: list[str]) -> list[tuple[Any, ...]]:
-    return sorted(tuple(norm(r.get(c)) for c in columns) for r in rows)
-
-
 def diff_silver_vs_source(table: str, silver_df: pl.DataFrame) -> dict[str, Any]:
-    src = source_rows(table)
-    cols = sorted(src[0].keys()) if src else [c for c in silver_df.columns if not c.startswith("_")]
-    sil = [dict(r.items()) for r in silver_df.to_dicts()] if silver_df.height else []
-    a, b = normalize(src, cols), normalize(sil, cols)
-    sa, sb = set(a), set(b)
-    return {
-        "table": table,
-        "source_rows": len(a),
-        "silver_rows": len(b),
-        "columns": cols,
-        "only_in_source": [list(map(str, x)) for x in sorted(sa - sb, key=str)[:5]],
-        "only_in_silver": [list(map(str, x)) for x in sorted(sb - sa, key=str)[:5]],
-        "equal": a == b,
-    }
+    """Row-level diff through the package's own verifier (same code as ./run.sh verify)."""
+
+    class _Silver:
+        def read(self, table: str) -> pl.DataFrame:
+            return silver_df
+
+        def schema(self, table: str) -> dict[str, pl.DataType]:
+            return dict(silver_df.schema)
+
+        def delete_markers(self, table: str) -> pl.DataFrame:
+            return pl.DataFrame()
+
+    return SilverVerifier(PsqlSourceReader(ROOT), _Silver()).diff(table).to_dict()
+
+
+def run_cli(*args: str, timeout: int = 300) -> tuple[int, str]:
+    """Run a project command and return (exit code, stdout + stderr), whatever the exit code."""
+    p = subprocess.run(list(args), cwd=ROOT, capture_output=True, text=True, timeout=timeout, check=False)
+    return p.returncode, p.stdout + p.stderr
 
 
 def wait_for[T](pred: Callable[[], T | None], timeout: float = 120, interval: float = 2, what: str = "condition") -> T:
