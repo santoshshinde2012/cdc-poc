@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: If you use or refer to this project, please cite it using these metadata.
+type: software
+title: Push-Based Postgres CDC Into Delta Lake Without Kafka
+authors:
+  - family-names: Shinde
+    given-names: Santosh
+    alias: santoshshinde2012
+    website: https://www.santoshshinde.com
+repository-code: "https://github.com/santoshshinde2012/cdc-poc"
+url: "https://github.com/santoshshinde2012/cdc-poc"
+abstract: >-
+  A local proof of concept that pushes Postgres changes into Delta Lake
+  tables with Debezium Server and no Kafka broker. It covers logical
+  replication, an idempotent Bronze change feed, and an LSN-ordered Silver
+  current-state table, with end-to-end tests for lost acks, crashes, late
+  events and schema changes.
+keywords:
+  - change-data-capture
+  - postgresql
+  - debezium
+  - delta-lake
+  - lakehouse
+  - data-engineering
+  - logical-replication
+license: MIT
+date-released: "2026-11-27"

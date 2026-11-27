@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1>Postgres CDC Into Delta Without a Broker</h1>
+<h1>Push-Based Postgres CDC Into Delta Lake Without Kafka</h1>
 
 <p><strong>Push Postgres changes into Delta tables with Debezium Server and no Kafka, and prove it holds up under lost acks, crashes, late events and schema changes.</strong></p>
 
@@ -13,14 +13,13 @@
 <img alt="Types: mypy strict" src="https://img.shields.io/badge/types-mypy%20strict-2A6DB2">
 <img alt="Tests: 82 unit and 8 integration passing" src="https://img.shields.io/badge/tests-82%20unit%20%2B%208%20integration%20passing-2EA44F">
 <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-lightgrey">
-<img alt="Status: private POC" src="https://img.shields.io/badge/status-private%20POC-6E7681">
 </p>
 
 </div>
 
 ## Contents
 
-1. [Overview](#overview)
+1. [Why this exists](#why-this-exists)
 2. [Architecture](#architecture)
 3. [What it proves](#what-it-proves)
 4. [Results at a glance](#results-at-a-glance)
@@ -33,9 +32,11 @@
 11. [Troubleshooting](#troubleshooting)
 12. [Limits](#limits)
 13. [Cleanup](#cleanup)
-14. [License and support](#license-and-support)
+14. [Related reading](#related-reading)
+15. [Cite or reference](#cite-or-reference)
+16. [License and support](#license-and-support)
 
-## Overview
+## Why this exists
 
 Moving Postgres changes into a lakehouse table usually means running a message broker between the database and the
 table writer. Pushing events straight from Debezium Server removes that broker, but it raises questions that are easy
@@ -766,6 +767,14 @@ cdc-poc/
 docker image rm postgres:17.12 quay.io/debezium/server:3.7.1.Final   # optional, frees the image space
 rm -rf .venv       # optional
 ```
+
+## Related reading
+
+A longer article on this design is in draft on Medium. The link will be added here when it is published.
+
+## Cite or reference
+
+If you use or refer to this project, please cite it using [CITATION.cff](CITATION.cff).
 
 ## License and support
 
