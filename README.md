@@ -50,8 +50,8 @@ batch to an append-only Bronze Delta table and answers 2xx only after the commit
 orders events by LSN and merges the current state (SCD Type 1).
 
 ```mermaid
-%%{init: {"layout": "dagre", "fontFamily": "Inter, Arial, sans-serif", "theme": "base", "themeVariables": {"fontFamily": "Inter, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#ffffff", "primaryTextColor": "#0f172a", "primaryBorderColor": "#475569", "lineColor": "#64748b", "secondaryColor": "#e2e8f0", "tertiaryColor": "#f1f5f9", "clusterBkg": "#f1f5f9", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#e2e8f0", "background": "transparent"}, "flowchart": {"curve": "basis", "padding": 12, "nodeSpacing": 30, "rankSpacing": 48, "htmlLabels": true}}}%%
-flowchart LR
+%%{init: {"layout": "dagre", "fontFamily": "Inter, Arial, sans-serif", "theme": "base", "themeVariables": {"fontFamily": "Inter, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#ffffff", "primaryTextColor": "#0f172a", "primaryBorderColor": "#475569", "lineColor": "#64748b", "secondaryColor": "#e2e8f0", "tertiaryColor": "#f1f5f9", "clusterBkg": "#f1f5f9", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#e2e8f0", "background": "transparent"}, "flowchart": {"curve": "basis", "padding": 12, "nodeSpacing": 30, "rankSpacing": 64, "htmlLabels": true}}}%%
+flowchart TB
   subgraph PGZ["PostgreSQL 17 (Docker)"]
     PG[("Tables and WAL<br/>slot dbz_slot")]
   end
@@ -61,20 +61,18 @@ flowchart LR
   end
 
   subgraph HOST["Receiver and Delta (host, uv)"]
-    RCV("Receiver")
+    direction LR
+    RCV("Receiver<br/>ack after commit")
     BRZ[("Bronze<br/>append-only")]
-    SJB("Silver job")
+    SJB("Silver job<br/>dedupe, order, merge")
     SLV[("Silver<br/>current state")]
+    RCV ==>|"append"| BRZ
+    BRZ ==>|"new files"| SJB
+    SJB ==>|"MERGE"| SLV
   end
 
-  PG ==>|"WAL stream"| DBZ
-  DBZ ==>|"batch POST"| RCV
-  RCV ==>|"append"| BRZ
-  BRZ ==>|"new files"| SJB
-  SJB ==>|"MERGE"| SLV
-
-  RCV -.->|"2xx ack"| DBZ
-  DBZ -.->|"confirm LSN"| PG
+  PGZ <==>|"WAL stream, LSN confirm"| DBZZ
+  DBZZ <==>|"batch POST, 2xx ack"| HOST
 
   classDef pg fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
   classDef dbz fill:#fce7f3,stroke:#be185d,stroke-width:1.5px,color:#0f172a
@@ -86,10 +84,9 @@ flowchart LR
   style DBZZ fill:#fdf2f8,stroke:#be185d,stroke-width:1.5px,color:#831843
   style HOST fill:#f0fdf4,stroke:#15803d,stroke-width:1.5px,color:#14532d
   linkStyle 0,1,2,3,4 stroke:#334155,stroke-width:3px
-  linkStyle 5,6 stroke:#94a3b8,stroke-width:1.5px
 ```
 
-Thick solid lines carry data. Thin dashed lines carry acknowledgments and position confirmations.
+Thick lines carry data. An arrowhead at both ends marks a hop whose return leg is an acknowledgment: the LSN confirm to Postgres and the 2xx response to Debezium.
 
 > [!IMPORTANT]
 > The receiver is a local stand-in for a managed ingest service such as Zerobus Ingest. It proves the delivery and
