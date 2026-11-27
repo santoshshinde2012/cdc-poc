@@ -1,0 +1,28 @@
+# Runtime data (Bronze, Silver, Debezium offsets, receiver log and pid)
+data/
+
+# Python and tool caches
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Raw logs from test runs (summaries, JSON and walkthrough output stay in git)
+results/*.log
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
