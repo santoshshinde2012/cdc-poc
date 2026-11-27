@@ -50,44 +50,83 @@ batch to an append-only Bronze Delta table and answers 2xx only after the commit
 orders events by LSN and merges the current state (SCD Type 1).
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"background": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#1f2937", "primaryBorderColor": "#64748b", "lineColor": "#475569", "secondaryColor": "#f1f5f9", "tertiaryColor": "#f8fafc", "fontFamily": "Segoe UI, Helvetica, Arial, sans-serif", "fontSize": "15px", "clusterBkg": "#f8fafc", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#ffffff"}, "flowchart": {"curve": "basis", "padding": 14, "nodeSpacing": 40, "rankSpacing": 60}}}%%
+%%{init: {"layout": "dagre", "fontFamily": "Inter, Arial, sans-serif", "theme": "base", "themeVariables": {"fontFamily": "Inter, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#ffffff", "primaryTextColor": "#0f172a", "primaryBorderColor": "#475569", "lineColor": "#64748b", "secondaryColor": "#e2e8f0", "tertiaryColor": "#f1f5f9", "clusterBkg": "#f1f5f9", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#e2e8f0", "background": "transparent"}, "flowchart": {"curve": "basis", "padding": 12, "nodeSpacing": 30, "rankSpacing": 48, "htmlLabels": true}}}%%
 flowchart LR
-  subgraph FRAME["Local proof of concept"]
-    direction LR
-    subgraph PGZ["Postgres 17 (Docker)"]
-      direction TB
-      PG[("customers, orders<br/>logical WAL")]
-    end
-    subgraph DBZZ["Debezium Server 3.7 (Docker)"]
-      direction TB
-      DBZ["pgoutput reader<br/>HTTP sink, 200 per batch<br/>file offsets"]
-    end
-    subgraph DELTAZ["Receiver and Delta (host, uv)"]
-      direction TB
-      RCV["Receiver<br/>ack after commit"]
-      BR[("Bronze<br/>append-only")]
-      SJ["Silver job<br/>dedupe, order by LSN, merge"]
-      SV[("Silver<br/>current state")]
-      RCV --> BR --> SJ --> SV
-    end
+  subgraph PGZ["PostgreSQL 17 (Docker)"]
+    PG[("Tables and WAL<br/>slot dbz_slot")]
   end
-  PG -->|"slot dbz_slot"| DBZ
-  DBZ -->|"POST /ingest"| RCV
-  RCV -.->|"2xx after commit"| DBZ
 
-  classDef store fill:#fff7e6,stroke:#d97706,stroke-width:1.5px,color:#1f2937
-  classDef proc fill:#ffffff,stroke:#475569,stroke-width:1.5px,color:#1f2937
-  class PG,BR,SV store
-  class DBZ,RCV,SJ proc
-  style FRAME fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#0f172a
-  style PGZ fill:#dbeafe,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a
-  style DBZZ fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#831843
-  style DELTAZ fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  subgraph DBZZ["Debezium Server 3.7 (Docker)"]
+    DBZ("Reader and HTTP sink<br/>(offsets file)")
+  end
+
+  subgraph HOST["Receiver and Delta (host, uv)"]
+    RCV("Receiver")
+    BRZ[("Bronze<br/>append-only")]
+    SJB("Silver job")
+    SLV[("Silver<br/>current state")]
+  end
+
+  PG ==>|"WAL stream"| DBZ
+  DBZ ==>|"batch POST"| RCV
+  RCV ==>|"append"| BRZ
+  BRZ ==>|"new files"| SJB
+  SJB ==>|"MERGE"| SLV
+
+  RCV -.->|"2xx ack"| DBZ
+  DBZ -.->|"confirm LSN"| PG
+
+  classDef pg fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
+  classDef dbz fill:#fce7f3,stroke:#be185d,stroke-width:1.5px,color:#0f172a
+  classDef host fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#0f172a
+  class PG pg
+  class DBZ dbz
+  class RCV,BRZ,SJB,SLV host
+  style PGZ fill:#eff6ff,stroke:#2563eb,stroke-width:1.5px,color:#1e3a8a
+  style DBZZ fill:#fdf2f8,stroke:#be185d,stroke-width:1.5px,color:#831843
+  style HOST fill:#f0fdf4,stroke:#15803d,stroke-width:1.5px,color:#14532d
+  linkStyle 0,1,2,3,4 stroke:#334155,stroke-width:3px
+  linkStyle 5,6 stroke:#94a3b8,stroke-width:1.5px
 ```
+
+Thick solid lines carry data. Thin dashed lines carry acknowledgments and position confirmations.
 
 > [!IMPORTANT]
 > The receiver is a local stand-in for a managed ingest service such as Zerobus Ingest. It proves the delivery and
 > ordering logic. It does not test OAuth, gRPC streams, quotas, typed-mode errors or Unity Catalog.
+
+### Delivery and replay
+
+Debezium moves its offset and the slot forward only after the receiver acknowledges a batch, and the receiver
+acknowledges only after the Delta commit. If the ack is lost, the batch is sent again and Bronze gets duplicate
+rows. The Silver job drops them on `idempotency_key`.
+
+```mermaid
+%%{init: {"layout": "dagre", "fontFamily": "Inter, Arial, sans-serif", "theme": "base", "themeVariables": {"fontFamily": "Inter, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#ffffff", "primaryTextColor": "#0f172a", "primaryBorderColor": "#475569", "lineColor": "#64748b", "actorBkg": "#e0e7ff", "actorBorder": "#4f46e5", "actorTextColor": "#0f172a", "actorLineColor": "#94a3b8", "signalColor": "#334155", "signalTextColor": "#0f172a", "noteBkgColor": "#fef3c7", "noteBorderColor": "#d97706", "noteTextColor": "#0f172a", "labelBoxBkgColor": "#e2e8f0", "labelBoxBorderColor": "#64748b", "labelTextColor": "#0f172a", "loopTextColor": "#0f172a", "sequenceNumberColor": "#ffffff", "background": "transparent"}}}%%
+sequenceDiagram
+  autonumber
+  participant PG as Postgres slot
+  participant DBZ as Debezium Server
+  participant RCV as Receiver
+  participant BRZ as Bronze Delta
+  rect rgb(241, 245, 249)
+    PG->>DBZ: Stream committed changes
+    DBZ->>RCV: POST /ingest (batch of events)
+    RCV->>BRZ: Append rows, one Delta commit
+    BRZ-->>RCV: Commit done
+    alt Ack reaches Debezium
+      RCV-->>DBZ: 2xx ack
+      DBZ->>DBZ: Save offset (every 20 s)
+      DBZ->>PG: Confirm LSN, slot releases WAL
+    else Ack lost, or Debezium killed before the offset is saved
+      RCV--xDBZ: 503 or no answer
+      Note over DBZ: Offset has not moved
+      DBZ->>RCV: Resend the same batch
+      RCV->>BRZ: Append again, duplicate rows
+      Note over BRZ: Silver job drops repeats on idempotency_key
+    end
+  end
+```
 
 ## What it proves
 
@@ -408,66 +447,66 @@ concrete Delta, HTTP and clock classes are chosen only in the two composition ro
 `silver/app.py`. Every port also has an in-memory implementation, so the unit tests need no Docker.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"background": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#1f2937", "primaryBorderColor": "#64748b", "lineColor": "#475569", "secondaryColor": "#f1f5f9", "tertiaryColor": "#f8fafc", "fontFamily": "Segoe UI, Helvetica, Arial, sans-serif", "fontSize": "15px", "clusterBkg": "#f8fafc", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#ffffff"}, "flowchart": {"curve": "basis", "padding": 14, "nodeSpacing": 28, "rankSpacing": 70}}}%%
+%%{init: {"layout": "dagre", "fontFamily": "Inter, Arial, sans-serif", "theme": "base", "themeVariables": {"fontFamily": "Inter, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#ffffff", "primaryTextColor": "#0f172a", "primaryBorderColor": "#475569", "lineColor": "#64748b", "secondaryColor": "#e2e8f0", "tertiaryColor": "#f1f5f9", "clusterBkg": "#f1f5f9", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#e2e8f0", "background": "transparent"}, "flowchart": {"curve": "basis", "padding": 12, "nodeSpacing": 30, "rankSpacing": 48, "htmlLabels": true}}}%%
 flowchart LR
-  subgraph FRAME["Dependencies point from left to right, adapters plug in at the end"]
-    direction LR
-    subgraph SVC["Services and steps"]
-      direction TB
-      HTTP["HttpHandler"]
-      ING["IngestService"]
-      MAP["EnvelopeMapper"]
-      JOB["SilverJob"]
-      STEPS["RowEventFilter, Deduper<br/>ImageProjector, LsnOrderer<br/>LateEventFilter"]
-      FAULT["FaultInjector"]
-    end
-    subgraph PORTS["Ports (Protocols in ports.py)"]
-      direction TB
-      BS(["BronzeSink"])
-      CS(["ChangeSource"])
-      SK(["SeenKeyStore"])
-      SR(["SilverReader"])
-      MG(["Merger"])
-      CK(["Clock"])
-      IK(["IdempotencyKeyStrategy"])
-    end
-    subgraph ADP["Adapters, chosen in ingest/app.py and silver/app.py"]
-      direction TB
-      DL["Delta adapters<br/>storage/delta.py"]
-      MEM["In-memory adapters<br/>storage/memory.py"]
-      CLK["SystemClock, FakeClock"]
-      SHA["Sha256IdempotencyKey"]
-    end
+  subgraph SVC["Services and steps"]
+    direction TB
+    HTTP("HttpHandler")
+    ING("IngestService")
+    MAP("EnvelopeMapper")
+    FLT("FaultInjector")
+    JOB("SilverJob")
+    STP("Silver steps<br/>filter, dedupe, project,<br/>order, late filter")
+  end
+
+  subgraph PRT["Ports (Protocols)"]
+    direction TB
+    CK{{"Clock"}}
+    IK{{"IdempotencyKeyStrategy"}}
+    BS{{"BronzeSink"}}
+    CS{{"ChangeSource"}}
+    SK{{"SeenKeyStore"}}
+    SR{{"SilverReader"}}
+    MG{{"Merger"}}
+  end
+
+  subgraph ADP["Adapters (wired in app.py)"]
+    direction TB
+    CLK("SystemClock<br/>FakeClock")
+    SHA("Sha256IdempotencyKey")
+    STO("Delta and in-memory<br/>adapters (storage/)")
   end
 
   HTTP --> ING
   HTTP --> CK
   ING --> MAP
-  ING --> FAULT
+  ING --> FLT
   ING --> BS
   MAP --> IK
-  JOB --> STEPS
+  JOB --> STP
   JOB --> CS
-  JOB --> SR
   JOB --> MG
-  STEPS --> SK
-  STEPS --> SR
+  JOB --> SR
+  STP --> SK
+  STP --> SR
 
-  PORTS -.->|"implemented by"| DL
-  PORTS -.->|"implemented by"| MEM
   CK -.-> CLK
   IK -.-> SHA
+  BS -.-> STO
+  CS -.-> STO
+  SK -.-> STO
+  SR -.-> STO
+  MG -.-> STO
 
-  classDef svc fill:#ffffff,stroke:#475569,stroke-width:1.5px,color:#1f2937
-  classDef port fill:#fff7e6,stroke:#d97706,stroke-width:1.5px,color:#1f2937
-  classDef adp fill:#ffffff,stroke:#16a34a,stroke-width:1.5px,color:#1f2937
-  class HTTP,ING,MAP,JOB,STEPS,FAULT svc
-  class BS,CS,SK,SR,MG,CK,IK port
-  class DL,MEM,CLK,SHA adp
-  style FRAME fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#0f172a
-  style SVC fill:#dbeafe,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a
-  style PORTS fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
-  style ADP fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  classDef svc fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
+  classDef prt fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#0f172a
+  classDef adp fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#0f172a
+  class HTTP,ING,MAP,FLT,JOB,STP svc
+  class CK,IK,BS,CS,SK,SR,MG prt
+  class CLK,SHA,STO adp
+  style SVC fill:#eff6ff,stroke:#2563eb,stroke-width:1.5px,color:#1e3a8a
+  style PRT fill:#fffbeb,stroke:#b45309,stroke-width:1.5px,color:#78350f
+  style ADP fill:#f0fdf4,stroke:#15803d,stroke-width:1.5px,color:#14532d
 ```
 
 | Port | Methods | Implementations |
