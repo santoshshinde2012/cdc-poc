@@ -1,78 +1,180 @@
-# Postgres CDC Into Delta Without a Broker
+<div align="center">
 
-A fully local proof of concept for push-based change data capture (CDC).
+<h1>Postgres CDC Into Delta Without a Broker</h1>
 
-![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
-![Postgres 17](https://img.shields.io/badge/postgres-17-336791)
-![Debezium Server 3.7.1](https://img.shields.io/badge/debezium%20server-3.7.1.Final-orange)
-![mypy strict](https://img.shields.io/badge/mypy-strict-brightgreen)
-![License MIT](https://img.shields.io/badge/license-MIT-lightgrey)
+<p><strong>Push Postgres changes into Delta tables with Debezium Server and no Kafka, and prove it holds up under lost acks, crashes, late events and schema changes.</strong></p>
 
-## The problem
+<p>
+<img alt="Python 3.12" src="https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white">
+<img alt="Postgres 17" src="https://img.shields.io/badge/postgres-17-336791?logo=postgresql&logoColor=white">
+<img alt="Debezium Server 3.7" src="https://img.shields.io/badge/debezium%20server-3.7-FF6B35">
+<img alt="Delta Lake" src="https://img.shields.io/badge/delta%20lake-delta--rs%201.7-00ADD4">
+<img alt="Lint: ruff" src="https://img.shields.io/badge/lint-ruff-261230">
+<img alt="Types: mypy strict" src="https://img.shields.io/badge/types-mypy%20strict-2A6DB2">
+<img alt="Tests: 68 unit and 7 integration passing" src="https://img.shields.io/badge/tests-68%20unit%20%2B%207%20integration%20passing-2EA44F">
+<img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-lightgrey">
+<img alt="Status: private POC" src="https://img.shields.io/badge/status-private%20POC-6E7681">
+</p>
 
-Moving Postgres changes into a lakehouse table usually means running a message broker just to carry events between
-the database and the table writer. That is one more cluster to size, secure and watch. Newer lakehouse ingest
-services accept events pushed straight from Debezium Server, which removes the broker, but it raises questions that
-are easy to get wrong: what happens when an acknowledgment is lost, what order do events arrive in, does a snapshot
-row carry a usable log position, and what does an idle replication slot do to the disk? This project answers those
-questions with code you can run on a laptop, and it keeps the answers as repeatable tests.
+</div>
 
-## What this proves
+## Contents
 
-- **No broker needed locally.** Debezium Server reads the Postgres WAL and pushes batches over HTTP to a small
-  receiver. The receiver stands in for a managed ingest service. There is no Kafka anywhere.
-- **At-least-once delivery is safe.** Lost acknowledgments and crashes between write and ack produce duplicate
-  rows in Bronze. Removing duplicates on `idempotency_key` keeps Silver equal to the source.
-- **Ordering comes from the LSN, not arrival.** A late event with a lower LSN never overwrites newer data or
-  brings back a deleted row.
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [What it proves](#what-it-proves)
+4. [Results at a glance](#results-at-a-glance)
+5. [Quick start](#quick-start)
+6. [Commands](#commands)
+7. [Configuration](#configuration)
+8. [Test suite](#test-suite)
+9. [Design (SOLID)](#design-solid)
+10. [Project layout](#project-layout)
+11. [Troubleshooting](#troubleshooting)
+12. [Limits](#limits)
+13. [Cleanup](#cleanup)
+14. [License and support](#license-and-support)
+
+## Overview
+
+Moving Postgres changes into a lakehouse table usually means running a message broker between the database and the
+table writer. Pushing events straight from Debezium Server removes that broker, but it raises questions that are easy
+to get wrong: what happens when an acknowledgment is lost, in what order do events apply, does a snapshot row carry a
+usable log position, and what does an idle replication slot do to the disk? This project answers them with a
+pipeline you can run on a laptop and seven repeatable end-to-end tests.
+
+## Architecture
+
+Debezium Server reads the Postgres WAL and pushes batches over HTTP to a small receiver. The receiver appends each
+batch to an append-only Bronze Delta table and answers 2xx only after the commit. A Silver job removes duplicates,
+orders events by LSN and merges the current state (SCD Type 1).
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#1f2937", "primaryBorderColor": "#64748b", "lineColor": "#475569", "secondaryColor": "#f1f5f9", "tertiaryColor": "#f8fafc", "fontFamily": "Segoe UI, Helvetica, Arial, sans-serif", "fontSize": "15px", "clusterBkg": "#f8fafc", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#ffffff"}, "flowchart": {"curve": "basis", "padding": 14, "nodeSpacing": 40, "rankSpacing": 60}}}%%
+flowchart LR
+  subgraph FRAME["Local proof of concept"]
+    direction LR
+    subgraph PGZ["Postgres 17 (Docker)"]
+      direction TB
+      PG[("customers, orders<br/>logical WAL")]
+    end
+    subgraph DBZZ["Debezium Server 3.7 (Docker)"]
+      direction TB
+      DBZ["pgoutput reader<br/>HTTP sink, 200 per batch<br/>file offsets"]
+    end
+    subgraph DELTAZ["Receiver and Delta (host, uv)"]
+      direction TB
+      RCV["Receiver<br/>ack after commit"]
+      BR[("Bronze<br/>append-only")]
+      SJ["Silver job<br/>dedupe, order by LSN, merge"]
+      SV[("Silver<br/>current state")]
+      RCV --> BR --> SJ --> SV
+    end
+  end
+  PG -->|"slot dbz_slot"| DBZ
+  DBZ -->|"POST /ingest"| RCV
+  RCV -.->|"2xx after commit"| DBZ
+
+  classDef store fill:#fff7e6,stroke:#d97706,stroke-width:1.5px,color:#1f2937
+  classDef proc fill:#ffffff,stroke:#475569,stroke-width:1.5px,color:#1f2937
+  class PG,BR,SV store
+  class DBZ,RCV,SJ proc
+  style FRAME fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#0f172a
+  style PGZ fill:#dbeafe,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a
+  style DBZZ fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#831843
+  style DELTAZ fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+```
+
+> [!IMPORTANT]
+> The receiver is a local stand-in for a managed ingest service such as Zerobus Ingest. It proves the delivery and
+> ordering logic. It does not test OAuth, gRPC streams, quotas, typed-mode errors or Unity Catalog.
+
+## What it proves
+
+- **No broker needed locally.** Postgres to Delta with Debezium Server and one HTTP receiver. There is no Kafka anywhere.
+- **At-least-once delivery is safe.** Lost acknowledgments and crashes between write and ack produce duplicate rows in
+  Bronze. Removing duplicates on `idempotency_key` keeps Silver equal to the source.
+- **Ordering comes from the LSN, not arrival.** A late event with a lower LSN never overwrites newer data or brings
+  back a deleted row.
 - **No loss on failure.** While the sink refuses writes, neither the Debezium offsets nor the replication slot move
   past unacknowledged events.
 - **Snapshot rows carry a non-null `source.lsn`**, so ordering by LSN has no NULLs to reject.
 - **An envelope-shaped Bronze table survives `ADD COLUMN`** with no schema change, and Silver gains the column.
 - **A replication slot holds WAL while nobody reads it**, with no cap by default.
 
-Detailed observations and caveats are in [docs/FINDINGS.md](docs/FINDINGS.md).
+More detail and caveats are in [docs/FINDINGS.md](docs/FINDINGS.md).
 
-## Architecture
+## Results at a glance
 
-```mermaid
-flowchart LR
-  subgraph docker[Docker]
-    PG[(Postgres 17<br/>wal_level=logical<br/>publication dbz_publication<br/>REPLICA IDENTITY FULL)]
-    DBZ[Debezium Server 3.7.1<br/>pgoutput, slot dbz_slot<br/>HTTP sink, batch mode<br/>file offsets, heartbeat 5 s]
-  end
-  subgraph host[Your machine, uv]
-    RCV[Receiver<br/>managed ingest stand-in<br/>2xx only after Delta commit]
-    BR[(Bronze Delta<br/>data/bronze/events<br/>envelope rows)]
-    SJ[Silver job<br/>drop heartbeats and tombstones<br/>dedupe on idempotency_key<br/>latest LSN per key<br/>MERGE, SCD Type 1]
-    SV[(Silver Delta<br/>data/silver/customers<br/>data/silver/orders)]
-  end
-  PG -- "WAL, logical replication" --> DBZ
-  DBZ -- "POST /ingest, JSON array" --> RCV
-  RCV -- "append, one commit per batch" --> BR
-  RCV -. "2xx after commit" .-> DBZ
-  BR --> SJ --> SV
-```
+Numbers are from the latest clean run on 2026-11-27 (IST), saved in `results/`. Timing-dependent counts such as
+duplicates and LSNs change a little from run to run. The pass or fail outcome does not.
 
-Data flow in one sentence: Postgres change, WAL, Debezium Server, HTTP batch, Bronze append (ack after commit),
-Silver job (dedupe, order by LSN, merge).
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/images/findings-silver-match.png" width="420" alt="Silver table equals the source table in every scenario"><br>
+      <sub><b>Silver equals the source</b> in all eight scenarios, including a full rebuild from Bronze.</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/images/findings-duplicates.png" width="420" alt="Duplicate rows in Bronze per replay scenario"><br>
+      <sub><b>At-least-once in practice:</b> 327 duplicate rows after a lost ack, 78 after a kill before the ack, 0 after a receiver restart. Silver stays correct.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/images/findings-wal.png" width="420" alt="WAL retained by the replication slot"><br>
+      <sub><b>The slot keeps WAL while Debezium is stopped:</b> 18.0 kB to 47.0 MB, back to 404.1 kB after catch-up.</sub>
+    </td>
+    <td width="50%" align="left" valign="top">
+      <b>Headline numbers</b>
+      <ul>
+        <li>Snapshot: 150 <code>read</code> rows, 0 with a NULL <code>source.lsn</code></li>
+        <li>96 customers and 94 orders after 300 transactions, 83 deletes, 0 duplicates</li>
+        <li>Sink refused writes, Debezium killed: all 53 refused events arrived after restart</li>
+        <li>Late lower-LSN events ignored: 2</li>
+        <li><code>ADD COLUMN region</code>: 73 Bronze events carry it, 44 Silver rows have it</li>
+        <li>Tests: 68 unit and 7 integration passed, 216 s end to end</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
-## Prerequisites
+<details>
+<summary>Full results table</summary>
+
+| Scenario | Observed |
+| --- | --- |
+| Snapshot | 150 `read` rows, 0 with a NULL `source.lsn`, all at one LSN (`26615504`, `0/1961ED0`). Reached Bronze 6.1 s after `up` |
+| 300 transactions | Silver equals source: 96 customers, 94 orders. 83 deletes, all with `after = NULL`. 0 duplicates |
+| Lost ack | **327 duplicate rows** in Bronze, Silver equals source |
+| Receiver restart | 0 duplicates, Silver equals source |
+| Debezium killed after write, before ack | **78 duplicate rows**, Silver equals source |
+| Sink refuses writes, Debezium killed | Slot `confirmed_flush_lsn` stayed at `27194376`, below the first refused event `27232256`. All 53 refused events arrived after restart |
+| Late lower-LSN events | `ignored_late = 2`, no stale value in Silver. An arrival-order apply (control) would have taken the stale name and resurrected the deleted row |
+| `ADD COLUMN region` | 73 Bronze events carry `region`. Silver: 44 rows with `region`, same as the source |
+| Debezium stopped | Retained WAL grew from 18.0 kB to **47.0 MB**. After restart and catch-up: 404.1 kB |
+| Only an uncaptured table busy, 45 s | Retained WAL grew to **24.0 MB** while `confirmed_flush_lsn` moved 294.8 kB and `restart_lsn` moved 83.2 kB |
+
+</details>
+
+The images are drawn by `scripts/render_snapshots.py` from `results/*.json` and the saved command output, with no
+typed-in numbers. Regenerate them after a new run with `uv run --with pillow python scripts/render_snapshots.py`.
+
+## Quick start
+
+### Prerequisites
 
 | Tool | Version tested | Notes |
 | --- | --- | --- |
-| Docker Desktop (or Docker Engine with Compose v2) | Docker 29.8, Compose 5.5 | Needs about 2 GB of free disk and 1.5 GB of memory for the two containers |
+| Docker Desktop (or Docker Engine with Compose v2) | Docker 29.8, Compose 5.5 | About 2 GB of free disk and 1.5 GB of memory for the two containers |
 | [uv](https://docs.astral.sh/uv/) | 0.12 | Installs Python and the dependencies |
 | Python | 3.12 | `uv` fetches it if missing (`requires-python >= 3.12`) |
 | bash, curl, lsof | macOS or Linux defaults | Used by `run.sh` |
 
-Free ports on the host: **55432** (Postgres) and **18080** (receiver).
+Free ports on the host: **55432** (Postgres) and **18080** (receiver). Images pulled on first run: `postgres:17` and
+`quay.io/debezium/server:3.7.1.Final`.
 
-Images pulled on first run: `postgres:17` and `quay.io/debezium/server:3.7.1.Final`.
-
-## Quick start
-
-Check the code first. This needs no Docker:
+### Check the code (no Docker)
 
 ```bash
 git clone https://github.com/santoshshinde2012/cdc-poc.git && cd cdc-poc
@@ -81,7 +183,7 @@ uv sync                 # create .venv and install dependencies, once
 ./run.sh unit           # 68 unit tests, a few seconds
 ```
 
-Then run the whole pipeline by hand with Docker running. Each step is explained in the walkthrough below:
+### Run the pipeline by hand (Docker running)
 
 ```bash
 ./run.sh up             # Postgres and Debezium in Docker, receiver on the host, snapshot starts
@@ -92,62 +194,65 @@ Then run the whole pipeline by hand with Docker running. Each step is explained 
 ./run.sh down           # stop everything, keep the data
 ```
 
-Or run every check and all seven end-to-end scenarios in one go:
+> [!IMPORTANT]
+> If you copied the folder or deleted `./data` but kept the Docker volume, run `./run.sh reset` once before `up`.
+> Postgres and Debezium must start from the same state.
+
+### Run everything in one go
 
 ```bash
-./run.sh test           # check + unit + integration, about 4 minutes, needs Docker
+./run.sh test           # check + unit + 7 end-to-end scenarios, about 4 minutes, needs Docker
 ```
 
 `./run.sh test` creates a fresh stack, runs every scenario, writes the evidence to `results/`, and stops the
-containers when it is done. If you copied the folder or deleted `./data` but kept the Docker volume, run
-`./run.sh reset` once before `up` so Postgres and Debezium start from the same state.
+containers when it is done.
 
-## Walkthrough
+## Commands
 
-Every block below is real output from a run on 2026-11-27 (IST), saved in `results/walkthrough/`.
+| Command | What it does |
+| --- | --- |
+| `./run.sh up` | Start Postgres, the receiver (host) and Debezium Server. The first start runs the initial snapshot of 50 customers and 100 orders |
+| `./run.sh seed` | Load the `run_workload` stored procedure into Postgres |
+| `./run.sh workload [N] [seed]` | Run N mixed transactions (default 200) |
+| `./run.sh silver [--full-refresh]` | Apply new Bronze events to Silver. `--full-refresh` rebuilds Silver from all of Bronze |
+| `./run.sh status` | Slot and retained WAL, source counts, Bronze counts, duplicate rows, Silver counts |
+| `./run.sh down` | Stop containers and the receiver, keep the Postgres volume and `./data` |
+| `./run.sh reset` | Stop, drop the Postgres volume and delete `./data` |
+| `./run.sh check` | `ruff check`, `ruff format --check`, `mypy` strict. Output in `results/check-output.txt` |
+| `./run.sh unit` | Unit tests, no Docker. Output in `results/unit-output.txt` |
+| `./run.sh integration` | Reset the stack and run the 7 end-to-end tests. Output in `results/pytest-output.txt` |
+| `./run.sh test` | `check`, `unit` and `integration` in that order |
+| `./run.sh receiver-restart` | Stop and start the receiver only |
+| `./run.sh logs` | Follow the receiver and Debezium logs |
+| `./run.sh help` | Print the command list |
 
-### 1. `./run.sh up`
+### Walkthrough with real output
 
-Starts Postgres, waits until it is healthy, starts the receiver on the host, then starts Debezium Server. The first
-start runs the initial snapshot of 50 customers and 100 orders.
+Output below is from a fresh run on 2026-11-27 (IST), saved in `results/walkthrough/`.
+
+<details>
+<summary><code>./run.sh up</code>, <code>seed</code> and <code>workload 200</code></summary>
 
 ```text
 $ ./run.sh up
  Container cdc-poc-postgres Started
  Container cdc-poc-postgres Healthy
 receiver up (pid 8457)
+ Container cdc-poc-postgres Healthy
  Container cdc-poc-debezium Started
 up. Bronze: data/bronze/events  Debezium offsets: data/debezium/offsets.dat
-```
-
-(Docker progress lines other than the health and start lines are left out.)
-
-In the integration run the snapshot reached Bronze 6.1 s after `up`.
-
-### 2. `./run.sh seed`
-
-Loads the `run_workload` stored procedure into Postgres. The demo schema and the first rows come from
-`postgres/init.sql`, which Postgres runs on first start.
-
-```text
 $ ./run.sh seed
 CREATE PROCEDURE
-```
-
-### 3. `./run.sh workload [N] [seed]`
-
-Runs N mixed transactions (default 200, optional random seed): new customers, updates, deletes that cascade to
-orders, new orders, and two updates of one row inside one transaction.
-
-```text
 $ ./run.sh workload 200
 CALL
 ```
 
-### 4. `./run.sh silver [--full-refresh]`
+Docker progress lines other than the health and start lines are left out.
 
-Applies the Bronze files that are new since the last run to the two Silver tables and prints what it did.
-`--full-refresh` rebuilds Silver from all of Bronze.
+</details>
+
+<details>
+<summary><code>./run.sh silver</code> prints what it applied</summary>
 
 ```text
 $ ./run.sh silver
@@ -185,18 +290,10 @@ silver.customers: 84 rows
 silver.orders: 108 rows
 ```
 
-### 5. `./run.sh status`
+</details>
 
-Shows the replication slot and the WAL it retains, the source row counts, the Bronze counts by operation, the
-number of duplicate rows in Bronze, and the Silver row counts. Silver (84 customers and 108 orders) equals the
-source. This fresh run has no duplicate rows because nothing was replayed.
-
-![Output of run.sh status](docs/images/status-output.png)
-
-### 6. `./run.sh down` and `./run.sh reset`
-
-`down` stops the containers and the receiver and keeps the Postgres volume and `./data`. `reset` also drops the
-volume and deletes `./data`.
+<details>
+<summary><code>./run.sh down</code></summary>
 
 ```text
 $ ./run.sh down
@@ -205,17 +302,15 @@ $ ./run.sh down
  Network cdc-poc_default Removed
 ```
 
-### Other commands
+</details>
 
-| Command | What it does |
-| --- | --- |
-| `./run.sh check` | `ruff check`, `ruff format --check`, `mypy` in strict mode. Output in `results/check-output.txt` |
-| `./run.sh unit` | Unit tests, no Docker. Output in `results/unit-output.txt` |
-| `./run.sh integration` | Resets the stack and runs the 7 end-to-end tests. Output in `results/pytest-output.txt` |
-| `./run.sh test` | `check`, `unit` and `integration` in that order |
-| `./run.sh receiver-restart` | Stops and starts the receiver only |
-| `./run.sh logs` | Follows the receiver and Debezium logs |
-| `./run.sh help` | Prints the command list |
+`./run.sh status` shows the slot, the WAL it retains, the source row counts, the Bronze counts by operation, the number
+of duplicate rows in Bronze and the Silver row counts. Silver (84 customers and 108 orders) equals the source. This
+fresh run has no duplicate rows because nothing was replayed.
+
+<p align="center">
+  <img src="docs/images/status-output.png" width="560" alt="Output of ./run.sh status">
+</p>
 
 ### Fault injection
 
@@ -270,12 +365,14 @@ Set in `docker-compose.yml`: `wal_level=logical`, `max_replication_slots=4`, `ma
 `max_slot_wal_keep_size=-1` (no cap, which is the default and the reason the slot can fill a disk). Set in
 `postgres/init.sql`: `REPLICA IDENTITY FULL` on both captured tables, so updates and deletes carry the old row.
 
-## The test suite
+## Test suite
 
 `./run.sh test` ran clean on 2026-11-27 (IST) on an Apple silicon Mac: lint and format clean, mypy strict clean on
 38 files, **68 unit tests passed in 3.9 s**, **7 integration tests passed in 210.8 s**, 216 s end to end.
 
-![Output of run.sh test](docs/images/test-summary.png)
+<p align="center">
+  <img src="docs/images/test-summary.png" width="720" alt="Output of ./run.sh test">
+</p>
 
 ### Unit tests (no Docker)
 
@@ -298,130 +395,91 @@ event, schema change, slot retention.
 | `test_06_schema_change_add_column` | `ALTER TABLE customers ADD COLUMN region` while streaming. Bronze schema is unchanged and Silver gains `region` |
 | `test_07_slot_retains_wal_while_stopped` | With Debezium stopped, the slot keeps WAL. After restart and catch-up it is released |
 
-## Results
+### Continuous integration
 
-All numbers come from the files in `results/`, written by the run above. Exact counts, LSNs and duplicate counts
-change a little from run to run because of timing. The pass or fail outcome does not.
+`.github/workflows/ci.yml` runs ruff, ruff format, mypy and the unit tests on pushes and pull requests that touch
+code. It has no Docker step, so the 7 end-to-end scenarios run locally with `./run.sh test`. The workflow has not
+run yet, so there is no CI badge.
 
-| Scenario | Observed |
-| --- | --- |
-| Snapshot | 150 `read` rows, 0 with a NULL `source.lsn`, all at one LSN (`26615504`, `0/1961ED0`) |
-| 300 transactions | Silver equals source: 96 customers, 94 orders. 83 deletes, all with `after = NULL`. 0 duplicates |
-| Lost ack | **327 duplicate rows** in Bronze, Silver equals source |
-| Receiver restart | 0 duplicates, Silver equals source |
-| Debezium killed after write, before ack | **78 duplicate rows**, Silver equals source |
-| Sink refuses writes, Debezium killed | Slot `confirmed_flush_lsn` stayed at `27194376`, below the first refused event `27232256`. All 53 refused events arrived after restart |
-| Late lower-LSN events | `ignored_late = 2`, no stale value in Silver. Arrival-order apply (control) would have taken the stale name and resurrected the deleted row |
-| `ADD COLUMN region` | 73 Bronze events carry `region`. Silver: 44 rows with `region`, same as the source |
-| Debezium stopped | Retained WAL grew from 18.0 kB to **47.0 MB**. After restart and catch-up: 404.1 kB |
-| Only an uncaptured table busy, 45 s | Retained WAL grew to **24.0 MB** while `confirmed_flush_lsn` moved 295 kB and `restart_lsn` moved 83 kB |
-
-![Silver versus source](docs/images/findings-silver-match.png)
-
-![Duplicate rows per replay scenario](docs/images/findings-duplicates.png)
-
-![WAL retained by the replication slot](docs/images/findings-wal.png)
-
-The images are drawn by `scripts/render_snapshots.py` from `results/*.json` and the saved command output, with no
-typed-in numbers. Regenerate them after a new run with:
-
-```bash
-uv run --with pillow python scripts/render_snapshots.py
-```
-
-## SOLID design
+## Design (SOLID)
 
 One package, `src/cdc_poc`, split by responsibility. Services depend on the small interfaces in `ports.py`. The
 concrete Delta, HTTP and clock classes are chosen only in the two composition roots, `ingest/app.py` and
 `silver/app.py`. Every port also has an in-memory implementation, so the unit tests need no Docker.
 
 ```mermaid
-classDiagram
-  direction LR
-  class BronzeSink {
-    <<Protocol>>
-    +append(rows)
-  }
-  class ChangeSource {
-    <<Protocol>>
-    +read_new() ChangeBatch
-    +commit(batch)
-  }
-  class CheckpointStore {
-    <<Protocol>>
-    +load()
-    +save(processed)
-  }
-  class SeenKeyStore {
-    <<Protocol>>
-    +drop_seen(frame)
-    +remember(keys)
-  }
-  class SilverReader {
-    <<Protocol>>
-    +read(table)
-    +schema(table)
-    +delete_markers(table)
-  }
-  class Merger {
-    <<Protocol>>
-    +merge(table, changes, keys)
-  }
-  class Clock {
-    <<Protocol>>
-    +now()
-    +sleep(s)
-  }
-  class IdempotencyKeyStrategy {
-    <<Protocol>>
-    +key(dest, key, op, pos)
-  }
+%%{init: {"theme": "base", "themeVariables": {"background": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#1f2937", "primaryBorderColor": "#64748b", "lineColor": "#475569", "secondaryColor": "#f1f5f9", "tertiaryColor": "#f8fafc", "fontFamily": "Segoe UI, Helvetica, Arial, sans-serif", "fontSize": "15px", "clusterBkg": "#f8fafc", "clusterBorder": "#94a3b8", "titleColor": "#0f172a", "edgeLabelBackground": "#ffffff"}, "flowchart": {"curve": "basis", "padding": 14, "nodeSpacing": 28, "rankSpacing": 70}}}%%
+flowchart LR
+  subgraph FRAME["Dependencies point from left to right, adapters plug in at the end"]
+    direction LR
+    subgraph SVC["Services and steps"]
+      direction TB
+      HTTP["HttpHandler"]
+      ING["IngestService"]
+      MAP["EnvelopeMapper"]
+      JOB["SilverJob"]
+      STEPS["RowEventFilter, Deduper<br/>ImageProjector, LsnOrderer<br/>LateEventFilter"]
+      FAULT["FaultInjector"]
+    end
+    subgraph PORTS["Ports (Protocols in ports.py)"]
+      direction TB
+      BS(["BronzeSink"])
+      CS(["ChangeSource"])
+      SK(["SeenKeyStore"])
+      SR(["SilverReader"])
+      MG(["Merger"])
+      CK(["Clock"])
+      IK(["IdempotencyKeyStrategy"])
+    end
+    subgraph ADP["Adapters, chosen in ingest/app.py and silver/app.py"]
+      direction TB
+      DL["Delta adapters<br/>storage/delta.py"]
+      MEM["In-memory adapters<br/>storage/memory.py"]
+      CLK["SystemClock, FakeClock"]
+      SHA["Sha256IdempotencyKey"]
+    end
+  end
 
-  class EnvelopeMapper
-  class IngestService
-  class FaultInjector
-  class HttpHandler
-  class SilverJob
-  class RowEventFilter
-  class Deduper
-  class ImageProjector
-  class LsnOrderer
-  class LateEventFilter
+  HTTP --> ING
+  HTTP --> CK
+  ING --> MAP
+  ING --> FAULT
+  ING --> BS
+  MAP --> IK
+  JOB --> STEPS
+  JOB --> CS
+  JOB --> SR
+  JOB --> MG
+  STEPS --> SK
+  STEPS --> SR
 
-  HttpHandler --> IngestService
-  HttpHandler --> Clock
-  IngestService --> EnvelopeMapper
-  IngestService --> BronzeSink
-  IngestService --> FaultInjector
-  EnvelopeMapper --> IdempotencyKeyStrategy
-  EnvelopeMapper --> Clock
-  SilverJob --> ChangeSource
-  SilverJob --> SilverReader
-  SilverJob --> Merger
-  SilverJob --> RowEventFilter
-  SilverJob --> Deduper
-  SilverJob --> ImageProjector
-  SilverJob --> LsnOrderer
-  SilverJob --> LateEventFilter
-  Deduper --> SeenKeyStore
-  LateEventFilter --> SilverReader
+  PORTS -.->|"implemented by"| DL
+  PORTS -.->|"implemented by"| MEM
+  CK -.-> CLK
+  IK -.-> SHA
 
-  BronzeSink <|.. DeltaBronzeWriter
-  BronzeSink <|.. InMemoryBronze
-  ChangeSource <|.. DeltaBronzeReader
-  ChangeSource <|.. InMemoryBronzeReader
-  CheckpointStore <|.. FileCheckpointStore
-  CheckpointStore <|.. InMemoryCheckpointStore
-  SeenKeyStore <|.. DeltaSeenKeyStore
-  SeenKeyStore <|.. InMemorySeenKeyStore
-  SilverReader <|.. DeltaSilverStore
-  SilverReader <|.. InMemorySilverStore
-  Merger <|.. DeltaScd1Merger
-  Merger <|.. InMemoryScd1Merger
-  Clock <|.. SystemClock
-  Clock <|.. FakeClock
-  IdempotencyKeyStrategy <|.. Sha256IdempotencyKey
+  classDef svc fill:#ffffff,stroke:#475569,stroke-width:1.5px,color:#1f2937
+  classDef port fill:#fff7e6,stroke:#d97706,stroke-width:1.5px,color:#1f2937
+  classDef adp fill:#ffffff,stroke:#16a34a,stroke-width:1.5px,color:#1f2937
+  class HTTP,ING,MAP,JOB,STEPS,FAULT svc
+  class BS,CS,SK,SR,MG,CK,IK port
+  class DL,MEM,CLK,SHA adp
+  style FRAME fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#0f172a
+  style SVC fill:#dbeafe,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a
+  style PORTS fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+  style ADP fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
 ```
+
+| Port | Methods | Implementations |
+| --- | --- | --- |
+| `BronzeSink` | `append(rows)` | `DeltaBronzeWriter`, `InMemoryBronze` |
+| `ChangeSource` | `read_new()`, `commit(batch)` | `DeltaBronzeReader`, `InMemoryBronzeReader` |
+| `CheckpointStore` | `load()`, `save(processed)` | `FileCheckpointStore`, `InMemoryCheckpointStore` |
+| `SeenKeyStore` | `drop_seen(frame)`, `remember(keys)` | `DeltaSeenKeyStore`, `InMemorySeenKeyStore` |
+| `SilverReader` | `read(table)`, `schema(table)`, `delete_markers(table)` | `DeltaSilverStore`, `InMemorySilverStore` |
+| `Merger` | `merge(table, changes, keys)` | `DeltaScd1Merger`, `InMemoryScd1Merger` |
+| `Clock` | `now()`, `sleep(s)` | `SystemClock`, `FakeClock` |
+| `IdempotencyKeyStrategy` | `key(dest, key, op, pos)` | `Sha256IdempotencyKey` |
 
 | Principle | Where it shows |
 | --- | --- |
@@ -456,7 +514,8 @@ same key.
 7. `Merger.merge()`: deletes remove the row, everything else upserts. New source columns are added.
 8. `ChangeSource.commit()`: mark the files processed.
 
-### Modules
+<details>
+<summary>Modules, one responsibility each</summary>
 
 | Module | One responsibility |
 | --- | --- |
@@ -479,6 +538,8 @@ same key.
 | `silver/ordering.py` | `LsnOrderer` and `LateEventFilter` |
 | `silver/job.py` | `SilverJob`: runs the steps in order and keeps stats, knows no storage details |
 | `silver/app.py` | Silver composition roots and `cdc-silver` entry point |
+
+</details>
 
 ## Project layout
 
@@ -515,15 +576,6 @@ cdc-poc/
 | Integration test fails on a slow machine | Timeouts are 150 to 240 s. Close other heavy containers, then rerun `./run.sh integration` |
 | Want a clean slate | `./run.sh reset`. The integration run does this itself at the start |
 
-## Cleanup
-
-```bash
-./run.sh down      # stop containers and the receiver, keep the volume and ./data
-./run.sh reset     # also drop the Postgres volume and delete ./data
-docker image rm postgres:17 quay.io/debezium/server:3.7.1.Final   # optional, frees the image space
-rm -rf .venv       # optional
-```
-
 ## Limits
 
 - **The HTTP sink stands in for a managed ingest service.** It proves the delivery and ordering logic. It does not
@@ -537,10 +589,17 @@ rm -rf .venv       # optional
 - Not covered: TOAST values, tables without a primary key, several slots or consumers, a Postgres crash (as
   opposed to a Debezium crash), and anything at production volume.
 
-## License
+## Cleanup
 
-[MIT](LICENSE). Copyright (c) 2026 Santosh Shinde.
+```bash
+./run.sh down      # stop containers and the receiver, keep the volume and ./data
+./run.sh reset     # also drop the Postgres volume and delete ./data
+docker image rm postgres:17 quay.io/debezium/server:3.7.1.Final   # optional, frees the image space
+rm -rf .venv       # optional
+```
 
-## Support
+## License and support
+
+Released under the [MIT license](LICENSE). Copyright (c) 2026 Santosh Shinde.
 
 If this saved you time, you can [buy me a coffee](https://buymeacoffee.com/santoshshin).
