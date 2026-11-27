@@ -1,15 +1,15 @@
 $ ./run.sh silver
 {
-  "bronze_rows_read": 417,
-  "bronze_files_read": 12,
+  "bronze_rows_read": 414,
+  "bronze_files_read": 9,
   "operations_read": {
     "create": 91,
     "delete": 49,
-    "heartbeat": 10,
+    "heartbeat": 7,
     "read": 150,
     "update": 117
   },
-  "dropped_non_row_events": 10,
+  "dropped_non_row_events": 7,
   "dup_in_batch": 0,
   "dup_across_runs": 0,
   "superseded_in_batch": {

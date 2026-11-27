@@ -1,26 +1,28 @@
 $ ruff check
 All checks passed!
 $ ruff format --check
-38 files already formatted
+48 files already formatted
 $ mypy
-Success: no issues found in 38 source files
-....................................................................     [100%]
-68 passed in 3.86s
+Success: no issues found in 48 source files
+........................................................................ [ 87%]
+..........                                                               [100%]
+82 passed in 10.69s
 ============================= test session starts ==============================
 platform darwin -- Python 3.12.6, pytest-9.2.0, pluggy-1.7.0 -- <project>/.venv/bin/python
 cachedir: .pytest_cache
 rootdir: <project>
 configfile: pyproject.toml
-collecting ... collected 7 items
+collecting ... collected 8 items
 
-tests/integration/test_cdc_poc.py::test_01_snapshot_rows_carry_lsn PASSED [ 14%]
-tests/integration/test_cdc_poc.py::test_02_changes_converge PASSED       [ 28%]
-tests/integration/test_cdc_poc.py::test_03_replay_after_lost_ack PASSED  [ 42%]
-tests/integration/test_cdc_poc.py::test_04_replay_after_restarts PASSED  [ 57%]
-tests/integration/test_cdc_poc.py::test_05_late_lower_lsn_event_is_ignored PASSED [ 71%]
-tests/integration/test_cdc_poc.py::test_06_schema_change_add_column PASSED [ 85%]
-tests/integration/test_cdc_poc.py::test_07_slot_retains_wal_while_stopped PASSED [100%]
+tests/integration/test_cdc_poc.py::test_01_snapshot_rows_carry_lsn PASSED [ 12%]
+tests/integration/test_cdc_poc.py::test_02_changes_converge PASSED       [ 25%]
+tests/integration/test_cdc_poc.py::test_03_replay_after_lost_ack PASSED  [ 37%]
+tests/integration/test_cdc_poc.py::test_04_replay_after_restarts PASSED  [ 50%]
+tests/integration/test_cdc_poc.py::test_05_late_lower_lsn_event_is_ignored PASSED [ 62%]
+tests/integration/test_cdc_poc.py::test_06_schema_change_add_column PASSED [ 75%]
+tests/integration/test_cdc_poc.py::test_07_slot_retains_wal_while_stopped PASSED [ 87%]
+tests/integration/test_cdc_poc.py::test_08_verify_command_detects_drift PASSED [100%]
 
-======================== 7 passed in 210.80s (0:03:30) =========================
+======================== 8 passed in 221.40s (0:03:41) =========================
 EXIT=0
-ELAPSED=216
+ELAPSED=242

@@ -13,7 +13,7 @@ $ ./run.sh up
  Container cdc-poc-postgres Started 
  Container cdc-poc-postgres Waiting 
  Container cdc-poc-postgres Healthy 
-receiver up (pid 8457)
+receiver up (pid 79980)
  Container cdc-poc-postgres Running 
  Container cdc-poc-debezium Creating 
  Container cdc-poc-debezium Created 
@@ -21,4 +21,8 @@ receiver up (pid 8457)
  Container cdc-poc-postgres Healthy 
  Container cdc-poc-debezium Starting 
  Container cdc-poc-debezium Started 
+ Container cdc-poc-debezium Waiting 
+ Container cdc-poc-postgres Waiting 
+ Container cdc-poc-postgres Healthy 
+ Container cdc-poc-debezium Healthy 
 up. Bronze: data/bronze/events  Debezium offsets: data/debezium/offsets.dat

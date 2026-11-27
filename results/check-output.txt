@@ -1,6 +1,11 @@
 $ ruff check
+Using CPython 3.12.6 interpreter at: /usr/local/bin/python3
+Creating virtual environment at: .venv
+   Building cdc-poc @ file://<project>
+      Built cdc-poc @ file://<project>
+Installed 20 packages in 60ms
 All checks passed!
 $ ruff format --check
-38 files already formatted
+48 files already formatted
 $ mypy
-Success: no issues found in 38 source files
+Success: no issues found in 48 source files

@@ -1,0 +1,19 @@
+{
+  "exit_code_when_converged": 0,
+  "exit_code_with_unapplied_change": 1,
+  "exit_code_after_silver_run": 0,
+  "drift_report_names_the_row": true,
+  "converged_output": [
+    "OK       customers  source   149 rows, silver   149 rows",
+    "OK       orders     source   132 rows, silver   132 rows",
+    "verify: Silver matches Postgres row by row"
+  ],
+  "drift_output": [
+    "MISMATCH customers  source   149 rows, silver   149 rows",
+    "         only in Postgres (email, id, name, region, tier, updated_at):",
+    "           u11.1@example.com, 1, VERIFY PROBE, None, gold, 2026-11-27 17:38:10.310759+00:00",
+    "         only in Silver   (email, id, name, region, tier, updated_at):",
+    "           u11.1@example.com, 1, customer 1, None, gold, 2026-11-27 17:38:10.310759+00:00",
+    "OK       orders     source   132 rows, silver   132 rows"
+  ]
+}

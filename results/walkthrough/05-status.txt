@@ -1,11 +1,11 @@
 $ ./run.sh status
  slot_name | active | restart_lsn | confirmed_flush_lsn | retained_wal 
 -----------+--------+-------------+---------------------+--------------
- dbz_slot  | t      | 0/1956CA0   | 0/19BB220           | 431 kB
+ dbz_slot  | t      | 0/1973660   | 0/1973660           | 316 kB
 (1 row)
 
 source customers=84 orders=108
-bronze rows 418 (heartbeats 11)
+bronze rows 414 (heartbeats 7)
 bronze duplicate rows 0 (same idempotency_key, removed by the Silver job)
 shape: (9, 3)
 ┌──────────────────────────┬───────────┬─────┐
@@ -13,7 +13,7 @@ shape: (9, 3)
 │ ---                      ┆ ---       ┆ --- │
 │ str                      ┆ str       ┆ u32 │
 ╞══════════════════════════╪═══════════╪═════╡
-│ __debezium-heartbeat.cdc ┆ heartbeat ┆ 11  │
+│ __debezium-heartbeat.cdc ┆ heartbeat ┆ 7   │
 │ cdc.public.customers     ┆ create    ┆ 46  │
 │ cdc.public.customers     ┆ delete    ┆ 12  │
 │ cdc.public.customers     ┆ read      ┆ 50  │

@@ -19,7 +19,7 @@
     "orders": 94
   },
   "min_streaming_lsn": 26621816,
-  "snapshot_lsn": 26615504,
+  "snapshot_lsn": 26569848,
   "streaming_lsn_above_snapshot_lsn": true,
   "tombstone_rows_in_bronze": 0,
   "heartbeat_rows_in_bronze": 2,

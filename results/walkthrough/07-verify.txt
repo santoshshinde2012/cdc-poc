@@ -1,0 +1,4 @@
+$ ./run.sh verify
+OK       customers  source    84 rows, silver    84 rows
+OK       orders     source   108 rows, silver   108 rows
+verify: Silver matches Postgres row by row

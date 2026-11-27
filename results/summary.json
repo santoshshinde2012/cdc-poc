@@ -1,13 +1,13 @@
 {
-  "snapshot_seconds_after_up": 6.1,
+  "snapshot_seconds_after_up": 0.1,
   "01_snapshot_lsn": {
     "snapshot_read_rows": 150,
     "null_source_lsn": 0,
     "distinct_snapshot_lsns": [
-      26615504
+      26569848
     ],
-    "snapshot_lsn_pg_format": "0/1961ED0",
-    "source_sequence_example": "[null,\"26615504\"]",
+    "snapshot_lsn_pg_format": "0/1956C78",
+    "source_sequence_example": "[null,\"26569848\"]",
     "source_snapshot_values": [
       "first",
       "first_in_data_collection",
@@ -18,18 +18,18 @@
     "source_example": {
       "connector": "postgresql",
       "db": "shop",
-      "lsn": 26615504,
+      "lsn": 26569848,
       "name": "cdc",
       "origin": null,
       "origin_lsn": null,
       "schema": "public",
-      "sequence": "[null,\"26615504\"]",
+      "sequence": "[null,\"26569848\"]",
       "snapshot": "first",
       "table": "customers",
-      "ts_ms": 1795784216652,
-      "ts_ns": 1795784216652758000,
-      "ts_us": 1795784216652758,
-      "txId": 749,
+      "ts_ms": 1795800947317,
+      "ts_ns": 1795800947317949000,
+      "ts_us": 1795800947317949,
+      "txId": 748,
       "version": "3.7.1.Final",
       "xmin": null
     }
@@ -55,7 +55,7 @@
       "orders": 94
     },
     "min_streaming_lsn": 26621816,
-    "snapshot_lsn": 26615504,
+    "snapshot_lsn": 26569848,
     "streaming_lsn_above_snapshot_lsn": true,
     "tombstone_rows_in_bronze": 0,
     "heartbeat_rows_in_bronze": 2,
@@ -80,8 +80,8 @@
       "silver_equals_source": true
     },
     "b_kill_after_write_before_ack": {
-      "offsets_file_lsn": 27175352,
-      "slot_confirmed_flush_lsn": 27175352,
+      "offsets_file_lsn": 27175408,
+      "slot_confirmed_flush_lsn": 27175408,
       "bronze_max_lsn": 27194144,
       "settled": {
         "offsets_file_lsn": 27194376,
@@ -94,9 +94,9 @@
     "c_kill_while_sink_refuses": {
       "slot_confirmed_flush_lsn": 27194376,
       "offsets_file_lsn": 27194376,
-      "wal_lsn_before_workload": 27231024,
+      "wal_lsn_before_workload": 27231080,
       "receiver_rejected": 8,
-      "min_lsn_of_refused_events": 27232256,
+      "min_lsn_of_refused_events": 27232440,
       "refused_events_delivered_after_restart": 53,
       "slot_stayed_behind_unacked_events": true,
       "silver_equals_source": true
@@ -107,13 +107,13 @@
   "05_out_of_order": {
     "late_update": {
       "id": 186,
-      "silver_lsn": 27242888,
-      "injected_lsn": 27242887
+      "silver_lsn": 27243072,
+      "injected_lsn": 27243071
     },
     "late_insert_for_deleted_key": {
       "id": 162,
-      "delete_lsn": 27243376,
-      "injected_lsn": 27243375
+      "delete_lsn": 27243560,
+      "injected_lsn": 27243559
     },
     "silver_stats": {
       "bronze_rows_read": 2,
@@ -177,56 +177,75 @@
     "max_slot_wal_keep_size": "-1",
     "while_running": {
       "active": true,
-      "restart_lsn": "0/1A00A48",
-      "confirmed_flush_lsn": "0/1A05068",
+      "restart_lsn": "0/19FB6F0",
+      "confirmed_flush_lsn": "0/1A05170",
       "wal_status": "reserved",
-      "retained_bytes": 18032,
+      "retained_bytes": 39552,
       "pg_wal_dir_bytes": 16777216
     },
     "stopped_start": {
       "active": false,
-      "restart_lsn": "0/1A00A48",
-      "confirmed_flush_lsn": "0/1A05068",
+      "restart_lsn": "0/19FB6F0",
+      "confirmed_flush_lsn": "0/1A05170",
       "wal_status": "reserved",
-      "retained_bytes": 18032,
+      "retained_bytes": 39552,
       "pg_wal_dir_bytes": 16777216
     },
     "stopped_end": {
       "active": false,
-      "restart_lsn": "0/1A00A48",
-      "confirmed_flush_lsn": "0/1A05068",
+      "restart_lsn": "0/19FB6F0",
+      "confirmed_flush_lsn": "0/1A05170",
       "wal_status": "reserved",
-      "retained_bytes": 47041488,
+      "retained_bytes": 47062880,
       "pg_wal_dir_bytes": 67108864
     },
-    "retained_growth_bytes": 47023456,
+    "retained_growth_bytes": 47023328,
     "after_restart_and_catch_up": {
       "active": true,
-      "restart_lsn": "0/46DD568",
-      "confirmed_flush_lsn": "0/46F19A8",
+      "restart_lsn": "0/46DD5A0",
+      "confirmed_flush_lsn": "0/46F19E0",
       "wal_status": "reserved",
-      "retained_bytes": 404120,
+      "retained_bytes": 543680,
       "pg_wal_dir_bytes": 67108864
     },
     "silver_equals_source_after_restart": true,
     "idle_captured_tables_noise_only": {
       "before": {
         "active": true,
-        "restart_lsn": "0/46DD568",
-        "confirmed_flush_lsn": "0/46F19A8",
+        "restart_lsn": "0/46DD5A0",
+        "confirmed_flush_lsn": "0/46F19E0",
         "wal_status": "reserved",
-        "retained_bytes": 404120,
+        "retained_bytes": 543680,
         "pg_wal_dir_bytes": 67108864
       },
       "after_45s": {
         "active": true,
-        "restart_lsn": "0/46F1A78",
-        "confirmed_flush_lsn": "0/4739920",
+        "restart_lsn": "0/47533B0",
+        "confirmed_flush_lsn": "0/4762160",
         "wal_status": "reserved",
-        "retained_bytes": 23989816,
+        "retained_bytes": 23590104,
         "pg_wal_dir_bytes": 67108864
       },
       "confirmed_flush_moved": true
     }
+  },
+  "08_verify": {
+    "exit_code_when_converged": 0,
+    "exit_code_with_unapplied_change": 1,
+    "exit_code_after_silver_run": 0,
+    "drift_report_names_the_row": true,
+    "converged_output": [
+      "OK       customers  source   149 rows, silver   149 rows",
+      "OK       orders     source   132 rows, silver   132 rows",
+      "verify: Silver matches Postgres row by row"
+    ],
+    "drift_output": [
+      "MISMATCH customers  source   149 rows, silver   149 rows",
+      "         only in Postgres (email, id, name, region, tier, updated_at):",
+      "           u11.1@example.com, 1, VERIFY PROBE, None, gold, 2026-11-27 17:38:10.310759+00:00",
+      "         only in Silver   (email, id, name, region, tier, updated_at):",
+      "           u11.1@example.com, 1, customer 1, None, gold, 2026-11-27 17:38:10.310759+00:00",
+      "OK       orders     source   132 rows, silver   132 rows"
+    ]
   }
 }
